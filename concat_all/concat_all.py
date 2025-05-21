@@ -4,6 +4,7 @@ import os
 import argparse
 import fnmatch
 import pathlib
+from datetime import datetime
 
 def should_ignore_path(path, gitignore_patterns=None):
     """
@@ -62,7 +63,7 @@ def read_gitignore(dir_path):
     return patterns
 
 def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump_{file_extension}.txt', 
-                comment_prefix: str = '//', use_gitignore: bool = False):
+                comment_prefix: str = '//', use_gitignore: bool = False, force: bool = False):
     """
     Concatenate all files with the specified extension(s) under dir_path recursively
     and output to the specified output file.
@@ -75,6 +76,7 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         output_file (str): Path to the output file
         comment_prefix (str): Prefix for comments in the output file
         use_gitignore (bool): Whether to filter files using .gitignore
+        force (bool): If true, overwrite the output file instead of appending timestamp
     """
     # Handle comma-separated extensions and remove leading dots and spaces
     extensions = [ext.strip('. ') for ext in file_extensions.split(',')]
@@ -87,7 +89,12 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         output_file = output_file.format(file_extension='_'.join(extensions))
     
     if os.path.isfile(output_file):
-        os.remove(output_file)
+        if force:
+            os.remove(output_file)
+        else:
+            base, ext = os.path.splitext(output_file)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = f"{base}_{timestamp}{ext}"
     
     # Read gitignore if needed
     gitignore_patterns = []
@@ -101,7 +108,6 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
     
     dir_path = os.path.abspath(dir_path)
     for root, dirs, files in os.walk(dir_path):
-            
         # Check if current directory should be ignored
         if use_gitignore and should_ignore_path(os.path.relpath(root, dir_path), gitignore_patterns):
             dirs[:] = []  # Don't traverse into ignored directories
@@ -143,16 +149,19 @@ def main():
     parser.add_argument('--output_file_dir', '-D', type=str, help='Path to the directory for the output file')
     parser.add_argument('--comment_prefix', '-c', type=str, help='Prefix for comments in the output file')
     parser.add_argument('--gitignore', '-i', action='store_true', help='Filter files using .gitignore')
+    parser.add_argument('--force', '-f', action='store_true', help='Overwrite output file if it exists (otherwise timestamp is appended)')
     args = parser.parse_args()
 
     kwargs = {}
-
     kwargs['dir_path'] = args.dir_path if args.dir_path else os.getcwd()
+    kwargs['force'] = args.force
     if args.output_file_dir:
         os.makedirs(args.output_file_dir, exist_ok=True)
         if not args.output_file:
             args.output_file = 'dump_{file_extension}.txt'
         kwargs['output_file'] = os.path.join(args.output_file_dir, args.output_file)
+    if args.output_file:
+        kwargs['output_file'] = args.output_file
     if args.comment_prefix:
         kwargs['comment_prefix'] = args.comment_prefix
     if args.gitignore:
@@ -162,4 +171,4 @@ def main():
     
 if __name__ == "__main__":
     main()
-    
+
