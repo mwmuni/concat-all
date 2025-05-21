@@ -63,7 +63,7 @@ def read_gitignore(dir_path):
     return patterns
 
 def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump_{file_extension}.txt', 
-                comment_prefix: str = '//', use_gitignore: bool = False, force: bool = False):
+                comment_prefix: str = '//', use_gitignore: bool = False, filename_suffix: str = ''):
     """
     Concatenate all files with the specified extension(s) under dir_path recursively
     and output to the specified output file.
@@ -76,7 +76,7 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         output_file (str): Path to the output file
         comment_prefix (str): Prefix for comments in the output file
         use_gitignore (bool): Whether to filter files using .gitignore
-        force (bool): If true, overwrite the output file instead of appending timestamp
+        filename_suffix (str): Suffix to append to the output file name
     """
     # Handle comma-separated extensions and remove leading dots and spaces
     extensions = [ext.strip('. ') for ext in file_extensions.split(',')]
@@ -87,14 +87,17 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         output_file = output_file.format(file_extension='all')
     else:
         output_file = output_file.format(file_extension='_'.join(extensions))
-    
+
+    if filename_suffix:
+        if '{timestamp}' in filename_suffix:
+            filename_suffix = filename_suffix.replace('{timestamp}', datetime.now().strftime('%Y%m%d_%H%M%S'))
+        if '{unixtime}' in filename_suffix:
+            filename_suffix = filename_suffix.replace('{unixtime}', str(int(datetime.now().timestamp())))
+        base, ext = os.path.splitext(output_file)
+        output_file = f"{base}{filename_suffix}{ext}"
+
     if os.path.isfile(output_file):
-        if force:
-            os.remove(output_file)
-        else:
-            base, ext = os.path.splitext(output_file)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"{base}_{timestamp}{ext}"
+        os.remove(output_file)
     
     # Read gitignore if needed
     gitignore_patterns = []
@@ -149,12 +152,11 @@ def main():
     parser.add_argument('--output_file_dir', '-D', type=str, help='Path to the directory for the output file')
     parser.add_argument('--comment_prefix', '-c', type=str, help='Prefix for comments in the output file')
     parser.add_argument('--gitignore', '-i', action='store_true', help='Filter files using .gitignore')
-    parser.add_argument('--force', '-f', action='store_true', help='Overwrite output file if it exists (otherwise timestamp is appended)')
+    parser.add_argument('--filename_suffix', type=str, help='Suffix to append to the output filename (supports {timestamp}, {unixtime})')
     args = parser.parse_args()
 
     kwargs = {}
     kwargs['dir_path'] = args.dir_path if args.dir_path else os.getcwd()
-    kwargs['force'] = args.force
     if args.output_file_dir:
         os.makedirs(args.output_file_dir, exist_ok=True)
         if not args.output_file:
@@ -166,6 +168,8 @@ def main():
         kwargs['comment_prefix'] = args.comment_prefix
     if args.gitignore:
         kwargs['use_gitignore'] = True
+    if args.filename_suffix:
+        kwargs['filename_suffix'] = args.filename_suffix
 
     concat_files(dir_path=kwargs.pop('dir_path'), file_extensions=args.file_extension, **kwargs)
     

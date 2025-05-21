@@ -62,7 +62,7 @@ concat-all <file_extensions> [options]
 | `--output_file_dir`, `-D`   | Directory to save the output file                                                               | Current working directory      |
 | `--comment_prefix`, `-c`    | Prefix for comment headers before each file's content                                           | `//`                           |
 | `--gitignore`, `-i`         | Respect `.gitignore` rules when selecting files                                                 | Disabled                       |
-| `--force`, `-f`             | Overwrite output file if it already exists (otherwise timestamp will be appended)               | Disabled                       |
+| `--filename_suffix`         | Suffix to append to the output file name. Supports `{timestamp}` and `{unixtime}` placeholders. | Disabled                       |
 
 ---
 
@@ -96,6 +96,12 @@ Change the comment prefix to `#`:
 
 ```bash
 concat-all py -c "#"
+```
+
+Concatenate all `.py` files with a timestamp appended to the output file name:
+
+```bash
+concat-all py -o result.txt --filename_suffix "_{timestamp}"
 ```
 
 ---
