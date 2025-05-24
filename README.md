@@ -8,9 +8,12 @@
 
 - Concatenate all files with specified extension(s) in a directory tree
 - Supports multiple extensions at once (e.g., `.py,.txt`)
-- Optionally respects `.gitignore` rules to skip ignored files and folders
+- Optionally respects `.gitignore` rules, including negated patterns (e.g., `!important_file.txt`), to skip or include files and folders
 - Adds a comment header before each file's content in the output
 - Flexible output file naming and location
+- Dry-run mode to preview changes
+- Exclude specific files or directories using glob patterns
+- Limit directory recursion depth
 - Cross-platform and Python 3.9+ compatible
 
 ---
@@ -57,12 +60,15 @@ concat-all <file_extensions> [options]
 
 | Option                      | Description                                                                                      | Default                        |
 |-----------------------------|--------------------------------------------------------------------------------------------------|--------------------------------|
-| `--dir_path`, `-d`          | Directory to search recursively                                                                  | Current working directory      |
-| `--output_file`, `-o`       | Output file name (can include `{file_extension}` placeholder)                                   | `dump_{file_extension}.txt`    |
-| `--output_file_dir`, `-D`   | Directory to save the output file                                                               | Current working directory      |
-| `--comment_prefix`, `-c`    | Prefix for comment headers before each file's content                                           | `//`                           |
-| `--gitignore`, `-i`         | Respect `.gitignore` rules when selecting files                                                 | Disabled                       |
+| `--dir_path`, `-d`          | Directory to search recursively.                                                                 | Current working directory      |
+| `--output_file`, `-o`       | Output file name (can include `{file_extension}` placeholder).                                  | `dump_{file_extension}.txt`    |
+| `--output_file_dir`, `-D`   | Directory to save the output file.                                                              | Current working directory      |
+| `--comment_prefix`, `-c`    | Prefix for comment headers before each file's content.                                          | `//`                           |
+| `--gitignore`, `-i`         | Respect `.gitignore` rules when selecting files.                                                | Disabled                       |
 | `--filename_suffix`         | Suffix to append to the output file name. Supports `{timestamp}` and `{unixtime}` placeholders. | Disabled                       |
+| `--dry-run`, `-n`           | List files to be processed and the final output file path without writing any files.             | Disabled                       |
+| `--exclude <patterns>`      | Comma-separated list of glob patterns to exclude files/directories (e.g., `"*.log,temp/*"`). Applied after `.gitignore`. | None                           |
+| `--max-depth <depth>`       | Maximum recursion depth. 0 for current directory, 1 for current + direct children, etc.        | -1 (unlimited)                 |
 
 ---
 
@@ -104,15 +110,41 @@ Concatenate all `.py` files with a timestamp appended to the output file name:
 concat-all py -o result.txt --filename_suffix "_{timestamp}"
 ```
 
+Perform a dry run to see which `.java` files would be concatenated:
+
+```bash
+concat-all java --dry-run
+```
+
+Concatenate `.ts` files, excluding all files in `node_modules` and any `*.test.ts` files:
+
+```bash
+concat-all ts --exclude "node_modules/*,*.test.ts"
+```
+
+Concatenate `.log` files only from the current directory (no subdirectories):
+
+```bash
+concat-all log --max-depth 0
+```
+
+Concatenate `.cfg` files from the current directory and its direct children, respecting `.gitignore`:
+
+```bash
+concat-all cfg --max-depth 1 --gitignore
+```
+
 ---
 
 ## How it works
 
-- Recursively walks the specified directory
-- Filters files by extension(s) or includes all files with `*`
-- Optionally skips files/directories matching `.gitignore` patterns
-- Concatenates file contents into a single output file
-- Adds a comment header before each file's content indicating its path
+- Recursively walks the specified directory up to `--max-depth` if provided.
+- Filters files by extension(s) or includes all files with `*`.
+- Optionally skips files/directories matching `.gitignore` patterns (supports negated patterns).
+- Skips files/directories matching user-provided `--exclude` glob patterns.
+- If not in `--dry-run` mode, concatenates file contents into a single output file.
+- Adds a comment header before each file's content indicating its path (in actual output).
+- In `--dry-run` mode, lists files that would be processed and the intended output file.
 
 ---
 
@@ -139,7 +171,6 @@ concat_files(
 
 - The output file name supports the placeholder `{file_extension}` which will be replaced with the concatenated extensions or `'all'` if using `*`.
 - The tool skips binary files or files it cannot read.
-- Negated `.gitignore` patterns (starting with `!`) are currently ignored for simplicity.
 - The output file itself is automatically excluded from concatenation.
 
 ---
