@@ -6,77 +6,44 @@ import fnmatch
 import pathlib
 from datetime import datetime
 
-def should_ignore_path(path, gitignore_patterns=None):
-    """
-    Check if a path should be ignored based on gitignore patterns.
-    
-    Args:
-        path (str): Path to check
-        gitignore_patterns (list): List of gitignore patterns
-        
-    Returns:
-        bool: True if the path should be ignored, False otherwise
-    """
+def should_ignore_path(path, gitignore_patterns=None, base_dir=None):
+    """Return True if ``path`` should be ignored according to ``gitignore_patterns``."""
+
     if not gitignore_patterns:
         return False
 
-    path_str = str(pathlib.Path(path))  # Use a different variable name
+    path_str = str(pathlib.Path(path))
+    abs_path = os.path.join(base_dir, path_str) if base_dir else path_str
 
-    negated_patterns = []
-    normal_patterns = []
+    ignore = False
+    for raw_pat in gitignore_patterns:
+        negated = raw_pat.startswith('!')
+        pat = raw_pat[1:] if negated else raw_pat
+        if pat.startswith('/'):
+            pat = pat[1:]
 
-    for p in gitignore_patterns:
-        if p.startswith('!'):
-            negated_patterns.append(p[1:])
+        if pat.endswith('/'):
+            base_pat = pat[:-1]
+            if (os.path.isdir(abs_path) and fnmatch.fnmatch(path_str, base_pat)) or \
+               fnmatch.fnmatch(path_str, base_pat) or fnmatch.fnmatch(path_str, base_pat + '/*'):
+                ignore = not negated
         else:
-            normal_patterns.append(p)
+            if fnmatch.fnmatch(path_str, pat):
+                ignore = not negated
 
-    # Check negated patterns first
-    for pattern_loop_var in negated_patterns:
-        temp_pattern = pattern_loop_var
-        if temp_pattern.startswith('/'):
-            temp_pattern = temp_pattern[1:]
-        
-        is_dir_pattern = temp_pattern.endswith('/')
-        if is_dir_pattern:
-            # Match "dir" itself if it's a directory
-            if os.path.isdir(path_str) and fnmatch.fnmatch(path_str, temp_pattern[:-1]):
-                return False # Don't ignore
-            # Match "dir/anything"
-            # Also matches "dir" itself if path_str is "dir" (fnmatch("dir", "dir/*") is false, fnmatch("dir", "dir") is true)
-            if fnmatch.fnmatch(path_str, temp_pattern[:-1] + '/*') or \
-               fnmatch.fnmatch(path_str, temp_pattern[:-1]):
-                # If path_str is "dir" (a file) and pattern is "dir/", 
-                # this file "dir" should not be unignored by the pattern "dir/".
-                if path_str == temp_pattern[:-1] and not os.path.isdir(path_str):
-                    pass 
-                else:
-                    return False # Don't ignore
-        elif fnmatch.fnmatch(path_str, temp_pattern):
-            return False # Don't ignore
+    if ignore and os.path.isdir(abs_path):
+        # If any negated pattern targets a path inside this directory, keep it
+        for raw_pat in gitignore_patterns:
+            if not raw_pat.startswith('!'):
+                continue
+            pat = raw_pat[1:]
+            if pat.startswith('/'):
+                pat = pat[1:]
+            if pat.startswith(path_str.rstrip('/') + '/'):
+                ignore = False
+                break
 
-    # Check normal patterns
-    for pattern_loop_var in normal_patterns:
-        temp_pattern = pattern_loop_var
-        if temp_pattern.startswith('/'):
-            temp_pattern = temp_pattern[1:]
-            
-        is_dir_pattern = temp_pattern.endswith('/')
-        if is_dir_pattern:
-            # Match "dir" itself if it's a directory
-            if os.path.isdir(path_str) and fnmatch.fnmatch(path_str, temp_pattern[:-1]):
-                return True # Ignore
-            # Match "dir/anything"
-            if fnmatch.fnmatch(path_str, temp_pattern[:-1] + '/*') or \
-               fnmatch.fnmatch(path_str, temp_pattern[:-1]):
-                if path_str == temp_pattern[:-1] and not os.path.isdir(path_str):
-                    pass
-                else:
-                    return True # Ignore
-        elif fnmatch.fnmatch(path_str, temp_pattern):
-            return True # Ignore
-            
-    return False
+    return ignore
 
 def read_gitignore(dir_path):
     """
@@ -178,7 +145,7 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
 
         # Check if current directory should be ignored by gitignore (this should happen after depth check if depth is 0)
         # If max_depth is 0, we process files in root, then clear dirs. Gitignore on root itself still applies.
-        if use_gitignore and should_ignore_path(current_rel_dir_path, gitignore_patterns):
+        if use_gitignore and should_ignore_path(current_rel_dir_path, gitignore_patterns, base_dir=dir_path):
             if dry_run:
                 print(f"Ignoring directory (gitignore): {current_rel_dir_path if current_rel_dir_path else os.path.basename(root)}")
             dirs[:] = [] # Also prune if gitignored
@@ -210,7 +177,7 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
                 continue
                 
             # Skip files matched by gitignore
-            if use_gitignore and should_ignore_path(rel_path, gitignore_patterns):
+            if use_gitignore and should_ignore_path(rel_path, gitignore_patterns, base_dir=dir_path):
                 if dry_run: # Optional: log gitignore skips for files too
                     print(f"Ignoring file (gitignore): {rel_path}")
                 continue
