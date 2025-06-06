@@ -231,13 +231,16 @@ def main():
 
     kwargs = {}
     kwargs['dir_path'] = args.dir_path if args.dir_path else os.getcwd()
+
+    output_file = args.output_file
     if args.output_file_dir:
         os.makedirs(args.output_file_dir, exist_ok=True)
-        if not args.output_file:
-            args.output_file = 'dump_{file_extension}.txt'
-        kwargs['output_file'] = os.path.join(args.output_file_dir, args.output_file)
-    if args.output_file:
-        kwargs['output_file'] = args.output_file
+        if not output_file:
+            output_file = 'dump_{file_extension}.txt'
+        output_file = os.path.join(args.output_file_dir, output_file)
+
+    if output_file:
+        kwargs['output_file'] = output_file
     if args.comment_prefix:
         kwargs['comment_prefix'] = args.comment_prefix
     if args.gitignore:
