@@ -262,5 +262,27 @@ class TestMaxDepthOption(BaseTestCase):
         self.assertIn(f"Max depth (1) reached. Not traversing further from: {path_al1d}", stdout_l1)
 
 
+class TestMainOutputDir(BaseTestCase):
+    def test_output_file_dir_with_default_name(self):
+        self._create_files({"file1.txt": "content1"})
+        output_dir = os.path.join(self.test_dir_path, "out")
+
+        stdout_capture = io.StringIO()
+        prev_argv = sys.argv
+        sys.argv = ["concat-all", "txt", "-d", self.test_dir_path, "-D", output_dir]
+        try:
+            with contextlib.redirect_stdout(stdout_capture):
+                concat_all.main()
+        finally:
+            sys.argv = prev_argv
+
+        output_file_path = os.path.join(output_dir, "dump_txt.txt")
+        self.assertTrue(os.path.exists(output_file_path))
+        with open(output_file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("file1.txt", content)
+
+
 if __name__ == '__main__':
     unittest.main()
