@@ -87,6 +87,7 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
     # Handle comma-separated extensions and remove leading dots and spaces
     extensions = [ext.strip('. ') for ext in file_extensions.split(',')]
     use_wildcard = '*' in extensions
+    extensions_set = set(extensions)
     
     # Set output filename
     if use_wildcard:
@@ -102,12 +103,15 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         base, ext = os.path.splitext(output_file)
         output_file = f"{base}{filename_suffix}{ext}"
 
+    output_file_abs = os.path.abspath(output_file)
     if dry_run:
         print("Dry run mode enabled.")
-        print(f"Output file would be: {os.path.abspath(output_file)}")
+        print(f"Output file would be: {output_file_abs}")
+        output_handle = None
     else:
-        if os.path.isfile(output_file):
-            os.remove(output_file)
+        if os.path.isfile(output_file_abs):
+            os.remove(output_file_abs)
+        output_handle = open(output_file_abs, 'a', encoding='utf-8')
     
     # Read gitignore if needed
     gitignore_patterns = []
@@ -169,11 +173,12 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         
         for file in files:
             file_path = os.path.join(root, file)
+            file_abs = file_path
             # Use current_rel_dir_path for file's relative path to ensure consistency
-            rel_path = os.path.join(current_rel_dir_path, file) 
-            
+            rel_path = os.path.join(current_rel_dir_path, file)
+
             # Skip the output file itself
-            if os.path.abspath(file_path) == os.path.abspath(output_file):
+            if file_abs == output_file_abs:
                 continue
                 
             # Skip files matched by gitignore
@@ -200,19 +205,21 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
             # Remove leading dot from file extension for comparison
             if file_ext.startswith('.'):
                 file_ext = file_ext[1:]
-            
-            if use_wildcard or file_ext in extensions:
+
+            if use_wildcard or file_ext in extensions_set:
                 if dry_run:
                     print(f"Would concatenate: {file_path}")
                 else:
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
-                        with open(output_file, 'a', encoding='utf-8') as dump_file:
-                            dump_file.write(f"{comment_prefix} File: {file_path}\n{content}\n\n")
+                        output_handle.write(f"{comment_prefix} File: {file_path}\n{content}\n\n")
                     except (UnicodeDecodeError, PermissionError, IsADirectoryError):
                         # Skip binary files and files we can't read
                         pass
+
+    if output_handle is not None:
+        output_handle.close()
 
 def main():
     # Example usage
