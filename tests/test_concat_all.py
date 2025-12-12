@@ -272,7 +272,9 @@ class TestMainOutputDir(BaseTestCase):
         sys.argv = ["concat-all", "txt", "-d", self.test_dir_path, "-D", output_dir]
         try:
             with contextlib.redirect_stdout(stdout_capture):
-                concat_all.main()
+                with self.assertRaises(SystemExit) as cm:
+                    concat_all.main()
+                self.assertEqual(cm.exception.code, 0)
         finally:
             sys.argv = prev_argv
 

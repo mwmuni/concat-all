@@ -60,15 +60,24 @@ concat-all <file_extensions> [options]
 
 | Option                      | Description                                                                                      | Default                        |
 |-----------------------------|--------------------------------------------------------------------------------------------------|--------------------------------|
-| `--dir_path`, `-d`          | Directory to search recursively.                                                                 | Current working directory      |
-| `--output_file`, `-o`       | Output file name (can include `{file_extension}` placeholder).                                  | `dump_{file_extension}.txt`    |
-| `--output_file_dir`, `-D`   | Directory to save the output file.                                                              | Current working directory      |
-| `--comment_prefix`, `-c`    | Prefix for comment headers before each file's content.                                          | `//`                           |
+| `--dir-path`, `-d`          | Directory to search recursively.                                                                 | Current working directory      |
+| `--output-file`, `-o`       | Output file name (can include `{file_extension}` placeholder).                                  | `dump_{file_extension}.txt`    |
+| `--output-file-dir`, `-D`   | Directory to save the output file.                                                              | Current working directory      |
+| `--comment-prefix`, `-c`    | Prefix for comment headers before each file's content.                                          | `//`                           |
 | `--gitignore`, `-i`         | Respect `.gitignore` rules when selecting files.                                                | Disabled                       |
-| `--filename_suffix`         | Suffix to append to the output file name. Supports `{timestamp}` and `{unixtime}` placeholders. | Disabled                       |
+| `--filename-suffix`         | Suffix to append to the output file name. Supports `{timestamp}` and `{unixtime}` placeholders. | Disabled                       |
 | `--dry-run`, `-n`           | List files to be processed and the final output file path without writing any files.             | Disabled                       |
 | `--exclude <patterns>`      | Comma-separated list of glob patterns to exclude files/directories (e.g., `"*.log,temp/*"`). Applied after `.gitignore`. | None                           |
 | `--max-depth <depth>`       | Maximum recursion depth. 0 for current directory, 1 for current + direct children, etc.        | -1 (unlimited)                 |
+| `--force`                   | Allow overwriting an existing output file.                                                      | Disabled                       |
+| `--append`                  | Append to an existing output file (instead of overwriting).                                     | Disabled                       |
+| `--verbose`                 | Print files that are ignored/excluded/skipped.                                                  | Disabled                       |
+| `--strict`                  | Fail on unreadable/binary files instead of skipping them.                                       | Disabled                       |
+| `--encoding <name>`         | Encoding used to read input files.                                                              | `utf-8-sig`                    |
+| `--errors <mode>`           | Encoding error handler.                                                                         | `strict`                       |
+| `--max-bytes <n>`           | Stop after writing at least N bytes to the output.                                              | -1 (unlimited)                 |
+| `--max-files <n>`           | Stop after concatenating N files.                                                               | -1 (unlimited)                 |
+| `--include-tree`            | Append a list of included files to the output.                                                  | Disabled                       |
 
 ---
 
@@ -161,7 +170,8 @@ concat_files(
     output_file="./output/dump_{file_extension}.txt",
     comment_prefix="//",
     use_gitignore=True,
-    force=False
+    force=False,
+    append=False
 )
 ```
 
