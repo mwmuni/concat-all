@@ -4,6 +4,7 @@ import os
 import argparse
 import fnmatch
 import pathlib
+import re
 from datetime import datetime
 
 def should_ignore_path(path, gitignore_patterns=None, base_dir=None):
@@ -69,7 +70,8 @@ def read_gitignore(dir_path):
 
 def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump_{file_extension}.txt', 
                 comment_prefix: str = '//', use_gitignore: bool = False, filename_suffix: str = '',
-                dry_run: bool = False, exclude_patterns: list = None, max_depth: int = -1):
+                dry_run: bool = False, exclude_patterns: list = None, exclude_regex_patterns: list = None,
+                max_depth: int = -1):
     """
     Concatenate all files with the specified extension(s) under dir_path recursively
     and output to the specified output file.
@@ -83,6 +85,8 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         comment_prefix (str): Prefix for comments in the output file
         use_gitignore (bool): Whether to filter files using .gitignore
         filename_suffix (str): Suffix to append to the output file name
+        exclude_patterns (list): Glob patterns to exclude
+        exclude_regex_patterns (list): Regex patterns to exclude
     """
     # Handle comma-separated extensions and remove leading dots and spaces
     extensions = [ext.strip('. ') for ext in file_extensions.split(',')]
@@ -125,6 +129,11 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
 
     if exclude_patterns is None:
         exclude_patterns = []
+
+    if exclude_regex_patterns is None:
+        exclude_regex_patterns = []
+
+    compiled_exclude_regex = [re.compile(pat) for pat in exclude_regex_patterns]
     
     dir_path = os.path.abspath(dir_path)
     # Calculate initial depth based on the absolute path
@@ -162,12 +171,22 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
         for d in original_dirs:
             dir_rel_path = os.path.join(current_rel_dir_path, d)
             excluded_by_custom_pattern = False
+
             for pattern in exclude_patterns:
                 if fnmatch.fnmatch(dir_rel_path, pattern) or fnmatch.fnmatch(dir_rel_path + '/', pattern):
                     if dry_run:
                         print(f"Excluding directory (--exclude pattern '{pattern}'): {dir_rel_path}")
                     excluded_by_custom_pattern = True
                     break
+
+            if not excluded_by_custom_pattern:
+                for cregex in compiled_exclude_regex:
+                    if cregex.search(dir_rel_path):
+                        if dry_run:
+                            print(f"Excluding directory (--exclude-regex '{cregex.pattern}'): {dir_rel_path}")
+                        excluded_by_custom_pattern = True
+                        break
+
             if not excluded_by_custom_pattern:
                 dirs.append(d)
         
@@ -196,6 +215,17 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
                     else:
                         # Optional: print even if not dry_run, as per instructions
                         print(f"Excluding file (--exclude pattern '{pattern}'): {rel_path}")
+                    excluded_by_user_pattern = True
+                    break
+            if excluded_by_user_pattern:
+                continue
+
+            for cregex in compiled_exclude_regex:
+                if cregex.search(rel_path):
+                    if dry_run:
+                        print(f"Excluding file (--exclude-regex '{cregex.pattern}'): {rel_path}")
+                    else:
+                        print(f"Excluding file (--exclude-regex '{cregex.pattern}'): {rel_path}")
                     excluded_by_user_pattern = True
                     break
             if excluded_by_user_pattern:
@@ -233,6 +263,7 @@ def main():
     parser.add_argument('--filename_suffix', type=str, help='Suffix to append to the output filename (supports {timestamp}, {unixtime})')
     parser.add_argument('--dry-run', '-n', action='store_true', help='Enable dry run mode. Shows files that would be concatenated without actually writing them.')
     parser.add_argument('--exclude', type=str, help='Comma-separated list of glob patterns to exclude files/directories (e.g., "*.log,temp/*,specific_file.py")')
+    parser.add_argument('--exclude-regex', type=str, help='Comma-separated list of regex patterns to exclude files/directories (matched against relative path)')
     parser.add_argument('--max-depth', type=int, default=-1, help='Maximum recursion depth. 0 for current directory, 1 for current + direct children, etc. Default: -1 (unlimited).')
     args = parser.parse_args()
 
@@ -258,6 +289,8 @@ def main():
         kwargs['dry_run'] = True
     if args.exclude:
         kwargs['exclude_patterns'] = [p.strip() for p in args.exclude.split(',')]
+    if args.exclude_regex:
+        kwargs['exclude_regex_patterns'] = [p.strip() for p in args.exclude_regex.split(',') if p.strip()]
     if args.max_depth is not None: # Will always be true due to default, but good practice
         kwargs['max_depth'] = args.max_depth
 
