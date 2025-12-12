@@ -243,6 +243,9 @@ def concat_files(dir_path: str, file_extensions: str, output_file: str = './dump
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
+                        # Strip potential UTF-8 BOM to avoid leading artifacts in concatenated output
+                        if content.startswith('\ufeff'):
+                            content = content.lstrip('\ufeff')
                         output_handle.write(f"{comment_prefix} File: {file_path}\n{content}\n\n")
                     except (UnicodeDecodeError, PermissionError, IsADirectoryError):
                         # Skip binary files and files we can't read
